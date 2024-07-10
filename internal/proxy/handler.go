@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+
+	"github.com/2marks/wakili/internal/errs"
 )
 
 type proxyHandlerResponse struct {
@@ -14,29 +16,20 @@ type proxyHandlerResponse struct {
 	Headers    http.Header
 }
 
-func proxyHandler(baseUrl string, client *http.Client, r *http.Request) (*proxyHandlerResponse, error) {
-	url := formFullUrl(baseUrl, r.URL.Path)
-	proxyHandlerResp := proxyHandlerResponse{
-		Url:        url,
-		StatusCode: 500,
-		Response:   nil,
-		Headers:    nil,
-	}
-
+func proxyHandler(url string, client *http.Client, r *http.Request) (*proxyHandlerResponse, error) {
 	//handle request body
 	requestBody, err := formRequestBody(r)
 	if err != nil {
-		return &proxyHandlerResp, err
+		return nil, errs.ErrInternal(err)
 	}
 
 	req, err := getNewRequest(r.Method, url, requestBody)
 	if err != nil {
-		return nil, err
+		return nil, errs.ErrInternal(err)
 	}
 
 	/**** start handle query params *****/
 	queryParams := formQueryParams(r.URL.RawQuery)
-
 	if queryParams != nil {
 		q := req.URL.Query()
 
@@ -59,10 +52,14 @@ func proxyHandler(baseUrl string, client *http.Client, r *http.Request) (*proxyH
 	/** end request headers **/
 
 	resp, err := client.Do(req)
-	proxyHandlerResp.StatusCode = resp.StatusCode
-	proxyHandlerResp.Headers = resp.Header
 	if err != nil {
-		return nil, err
+		return nil, errs.ErrInternal(err)
+	}
+
+	proxyHandlerResp := proxyHandlerResponse{
+		Url:        url,
+		StatusCode: resp.StatusCode,
+		Headers:    resp.Header,
 	}
 
 	defer resp.Body.Close()
