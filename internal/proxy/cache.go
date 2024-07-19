@@ -125,6 +125,15 @@ func deleteFile(filePath string) error {
 	return nil
 }
 
+func deleteAllFiles(filePath string) error {
+	err := os.RemoveAll(filePath)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func getBaseDirPath(baseUrl string) string {
 	baseUrlDirName := getHashNumber(baseUrl)
 	baseDirPath := filepath.Join(getCacheDirPath(), baseUrlDirName)
@@ -206,10 +215,10 @@ func clearExpiredCache() {
 	})
 }
 
-/*func purgeCache(baseUrl string) {
+func purgeCache(baseUrl string) error {
 	if baseUrl == "" {
-		deleteFile(getCacheDirPath())
-	} else {
-		deleteFile(getBaseDirPath(baseUrl))
+		return deleteAllFiles(getCacheDirPath())
 	}
-}*/
+
+	return deleteAllFiles(getBaseDirPath(baseUrl))
+}
