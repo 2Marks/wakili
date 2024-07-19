@@ -14,6 +14,31 @@ type proxyHandlerResponse struct {
 	Response   map[string]interface{}
 	StatusCode int
 	Headers    http.Header
+	IsCached   bool
+}
+
+func proxyCacheHandler(baseUrl string, url string, cache int, client *http.Client, r *http.Request) (*proxyHandlerResponse, error) {
+	isCachingEnabled := cache >= 0
+
+	if isCachingEnabled {
+		responseFromCache, _ := getFromCache(baseUrl, r)
+		if responseFromCache != nil {
+			responseFromCache.IsCached = true
+			return responseFromCache, nil
+		}
+	}
+
+	resp, err := proxyHandler(url, client, r)
+
+	isSuccessResponse := err == nil && resp != nil && resp.StatusCode <= http.StatusCreated
+	if isCachingEnabled && isSuccessResponse {
+		jsonData, err := json.Marshal(resp)
+		if err == nil {
+			saveToCache(baseUrl, r, string(jsonData), cache)
+		}
+	}
+
+	return resp, err
 }
 
 func proxyHandler(url string, client *http.Client, r *http.Request) (*proxyHandlerResponse, error) {

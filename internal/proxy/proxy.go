@@ -11,11 +11,12 @@ import (
 type ProxyServer struct {
 	baseUrl string
 	port    string
+	cache   int
 	client  *http.Client
 }
 
-func NewServer(baseUrl string, port string) *ProxyServer {
-	return &ProxyServer{client: &http.Client{}, baseUrl: baseUrl, port: port}
+func NewServer(baseUrl string, port string, cache int) *ProxyServer {
+	return &ProxyServer{client: &http.Client{}, baseUrl: baseUrl, port: port, cache: cache}
 }
 
 func (p *ProxyServer) StartServer() {
@@ -39,14 +40,19 @@ func (p *ProxyServer) requestHandler(w http.ResponseWriter, r *http.Request) {
 	startAt := time.Now()
 	statusCode := http.StatusInternalServerError
 	url := formFullUrl(p.baseUrl, r.URL.Path)
+	displayUrl := url
 
-	proxyResp, err := proxyHandler(url, p.client, r)
+	proxyResp, err := proxyCacheHandler(p.baseUrl, url, p.cache, p.client, r)
 	if proxyResp != nil {
 		statusCode = proxyResp.StatusCode
+
+		if proxyResp.IsCached {
+			displayUrl = fmt.Sprintf("%s(cached)", displayUrl)
+		}
 	}
 
 	//log response duration
-	fmt.Printf("%s %s %d %v \n", r.Method, url, statusCode, time.Since(startAt))
+	fmt.Printf("%s %s %d %v \n", r.Method, displayUrl, statusCode, time.Since(startAt))
 
 	if proxyResp != nil {
 		proxyResponseHandler(w, proxyResp)
